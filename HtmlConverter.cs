@@ -66,6 +66,7 @@ namespace OpenXmlPowerTools
         public bool RestrictToSupportedNumberingFormats;
         public Dictionary<string, Func<string, int, string, string>> ListItemImplementations;
         public Func<ImageInfo, XElement> ImageHandler;
+        public SimplifyMarkupSettings SimplifyMarkupSettings;
 
         public HtmlConverterSettings()
         {
@@ -113,22 +114,11 @@ namespace OpenXmlPowerTools
         {
             InitEntityMap();
             RevisionAccepter.AcceptRevisions(wordDoc);
-            SimplifyMarkupSettings simplifyMarkupSettings = new SimplifyMarkupSettings
-            {
-                RemoveComments = true,
-                RemoveContentControls = true,
-                RemoveEndAndFootNotes = true,
-                RemoveFieldCodes = false,
-                RemoveLastRenderedPageBreak = true,
-                RemovePermissions = true,
-                RemoveProof = true,
-                RemoveRsidInfo = true,
-                RemoveSmartTags = true,
-                RemoveSoftHyphens = true,
-                RemoveGoBackBookmark = true,
-                ReplaceTabsWithSpaces = false,
-            };
-            MarkupSimplifier.SimplifyMarkup(wordDoc, simplifyMarkupSettings);
+
+            if (htmlConverterSettings.SimplifyMarkupSettings == null)
+                MarkupSimplifier.SimplifyMarkup(wordDoc, GetDefaultMarkupSettings());
+            else
+                MarkupSimplifier.SimplifyMarkup(wordDoc, htmlConverterSettings.SimplifyMarkupSettings);
 
             FormattingAssemblerSettings formattingAssemblerSettings = new FormattingAssemblerSettings
             {
@@ -167,6 +157,25 @@ namespace OpenXmlPowerTools
             // must do it correctly, or entities will not be serialized properly.
 
             return xhtml;
+        }
+
+        public static SimplifyMarkupSettings GetDefaultMarkupSettings()
+        {
+            return new SimplifyMarkupSettings
+            {
+                RemoveComments = true,
+                RemoveContentControls = true,
+                RemoveEndAndFootNotes = true,
+                RemoveFieldCodes = false,
+                RemoveLastRenderedPageBreak = true,
+                RemovePermissions = true,
+                RemoveProof = true,
+                RemoveRsidInfo = true,
+                RemoveSmartTags = true,
+                RemoveSoftHyphens = true,
+                RemoveGoBackBookmark = true,
+                ReplaceTabsWithSpaces = false,
+            };
         }
 
         private static void ReverseTableBordersForRtlTables(WordprocessingDocument wordDoc)
@@ -465,7 +474,7 @@ namespace OpenXmlPowerTools
                     if (tabWidthAtt != null)
                     {
                         var leader = (string)element.Attribute(PtOpenXml.Leader);
-                        var tabWidth = (decimal)tabWidthAtt;
+                        var tabWidth = decimal.Parse((string)tabWidthAtt, System.Globalization.CultureInfo.InvariantCulture);
                         var style = new Dictionary<string, string>();
                         XElement span;
                         if (leader != null)
@@ -1624,7 +1633,9 @@ namespace OpenXmlPowerTools
             // for all content parts, not just the main document part.
 
             // w:defaultTabStop in settings
-            var defaultTabStop = (int?)wordDoc.MainDocumentPart.DocumentSettingsPart.GetXDocument().Descendants(W.defaultTabStop).Attributes(W.val).FirstOrDefault();
+            int? defaultTabStop = null;
+            if (wordDoc.MainDocumentPart.DocumentSettingsPart != null)
+                 defaultTabStop = (int?)wordDoc.MainDocumentPart.DocumentSettingsPart.GetXDocument().Descendants(W.defaultTabStop).Attributes(W.val).FirstOrDefault();
             if (defaultTabStop == null)
                 defaultTabStop = 720;
 
